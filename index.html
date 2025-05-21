@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Predicción de x para y = 2x² - 3x + 1</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f7fa;
+        color: #333;
+      }
+
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+      }
+
+      .container {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+        margin-bottom: 20px;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 20px;
+      }
+
+      label {
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
+      input[type="number"] {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
+
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+
+      button:hover {
+        background-color: #2980b9;
+      }
+
+      #result {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #e8f4fc;
+        border-left: 4px solid #3498db;
+        border-radius: 4px;
+      }
+
+      .loading {
+        color: #7f8c8d;
+        font-style: italic;
+      }
+
+      .solution {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #eaf7ea;
+        border-left: 4px solid #2ecc71;
+        border-radius: 4px;
+      }
+
+      .formula {
+        font-family: "Courier New", monospace;
+        background-color: #f8f9fa;
+        padding: 5px 10px;
+        border-radius: 4px;
+        display: inline-block;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 30px;
+        color: #7f8c8d;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      Modelo para predecir x en <span class="formula">y = 2x² - 3x + 1</span>
+    </h1>
+
+    <div class="container">
+      <div class="input-group">
+        <label for="y-value">Ingrese valor de y:</label>
+        <input
+          type="number"
+          id="y-value"
+          step="0.1"
+          placeholder="Ejemplo: 5.2"
+        />
+        <button onclick="predictX()">Predecir x</button>
+      </div>
+
+      <div id="result">
+        <p class="loading">El modelo se está cargando... por favor espere.</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>¿Cómo funciona?</h2>
+      <p>
+        Este modelo utiliza TensorFlow.js para aprender la relación inversa de
+        la función cuadrática:
+      </p>
+      <p class="formula">y = 2x² - 3x + 1</p>
+      <p>
+        Cuando ingresas un valor de y, el modelo predice el valor
+        correspondiente de x usando una red neuronal entrenada.
+      </p>
+    </div>
+
+    <footer>
+      Modelo creado con TensorFlow.js | Función cuadrática inversa
+    </footer>
+
+    <script>
+      function generateData(numSamples) {
+        const xs = [];
+        const ys = [];
+
+        for (let i = 0; i < numSamples; i++) {
+          const x = Math.random() * 20 - 10;
+          const y = 2 * Math.pow(x, 2) - 3 * x + 1;
+
+          ys.push(x);
+          xs.push(y);
+        }
+
+        return {
+          xs: tf.tensor1d(xs).reshape([numSamples, 1]),
+          ys: tf.tensor1d(ys).reshape([numSamples, 1]),
+        };
+      }
+
+      let model;
+      async function trainModel() {
+        // Actualizamos el estado
+        document.getElementById("result").innerHTML =
+          '<p class="loading">Entrenando el modelo... esto puede tomar un momento.</p>';
+
+        model = tf.sequential();
+
+        model.add(
+          tf.layers.dense({ units: 20, inputShape: [1], activation: "relu" })
+        );
+        model.add(tf.layers.dense({ units: 20, activation: "relu" }));
+        model.add(tf.layers.dense({ units: 1 })); // Salida: x
+
+        model.compile({
+          optimizer: tf.train.adam(0.01),
+          loss: "meanSquaredError",
+        });
+
+        const data = generateData(10000);
+
+        await model.fit(data.xs, data.ys, {
+          epochs: 50,
+          batchSize: 32,
+          validationSplit: 0.2,
+          callbacks: {
+            onEpochEnd: (epoch, logs) => {
+              console.log(`Época ${epoch}: pérdida = ${logs.loss}`);
+            },
+          },
+        });
+
+        document.getElementById("result").innerHTML =
+          '<p style="color:#2ecc71;">¡Modelo entrenado y listo para hacer predicciones!</p>';
+      }
+
+      async function predictX() {
+        const yValue = parseFloat(document.getElementById("y-value").value);
+
+        if (isNaN(yValue)) {
+          alert("Por favor ingrese un valor numérico válido para y");
+          return;
+        }
+
+        if (!model) {
+          alert("El modelo aún se está cargando. Por favor espere.");
+          return;
+        }
+
+        document.getElementById("result").innerHTML =
+          '<p class="loading">Calculando predicción...</p>';
+
+        const inputTensor = tf.tensor2d([[yValue]]);
+
+        const predictionTensor = model.predict(inputTensor);
+        const prediction = await predictionTensor.data();
+
+        document.getElementById("result").innerHTML = `
+                <h3>Resultados para y = ${yValue}</h3>
+                <div class="solution">
+                    <p><strong>Predicción del modelo:</strong> x ≈ ${prediction[0].toFixed(
+                      4
+                    )}</p>
+                </div>
+                <div class="solution">
+                    <p><strong>Solución exacta (fórmula cuadrática):</strong></p>
+                    <p>${getExactSolutions(yValue)}</p>
+                </div>
+                <p><small>Nota: Para funciones cuadráticas, cada valor de y puede tener dos valores de x correspondientes. 
+                El modelo aprende una de las posibles soluciones.</small></p>
+            `;
+
+        inputTensor.dispose();
+        predictionTensor.dispose();
+      }
+
+      function getExactSolutions(y) {
+        // Reescribimos la ecuación: 2x² - 3x + (1 - y) = 0
+        const a = 2;
+        const b = -3;
+        const c = 1 - y;
+
+        const discriminant = b * b - 4 * a * c;
+
+        if (discriminant < 0) {
+          return "No hay soluciones reales para este valor de y.";
+        } else if (discriminant === 0) {
+          const x = -b / (2 * a);
+          return `x = ${x.toFixed(4)} (solución única)`;
+        } else {
+          const x1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+          const x2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+          return `x₁ = ${x1.toFixed(4)}, x₂ = ${x2.toFixed(4)}`;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        trainModel().then(() => {
+          console.log("Modelo entrenado!");
+        });
+      });
+    </script>
+  </body>
+</html>
